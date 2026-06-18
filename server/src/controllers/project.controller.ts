@@ -48,6 +48,15 @@ export const getProjectById = async (req: Request, res: Response): Promise<void>
             return;
         }
 
+        // [FIX C-01] Only allow public access to approved projects
+        if (project.status !== 'approved') {
+            res.status(404).json({
+                success: false,
+                message: 'Project not found'
+            });
+            return;
+        }
+
         res.status(200).json({
             success: true,
             data: project
@@ -235,39 +244,49 @@ export const toggleLike = async (req: AuthRequest, res: Response): Promise<void>
         const { id } = req.params;
         const userId = req.user!.id;
 
-        const project = await Project.findById(id);
+        // [FIX H-01] Atomic like toggle — try $addToSet first, fall back to $pull
+        const addResult = await Project.findOneAndUpdate(
+            { _id: id, likes: { $ne: userId } },
+            { $addToSet: { likes: userId } },
+            { new: true }
+        );
 
-        if (!project) {
-            res.status(404).json({
-                success: false,
-                message: 'Project not found'
+        if (addResult) {
+            // Successfully liked (user was not in likes array)
+            res.status(200).json({
+                success: true,
+                message: 'Project liked',
+                data: {
+                    likesCount: addResult.likes.length,
+                    hasLiked: true
+                }
             });
             return;
         }
 
-        const hasLiked = project.likes.some(
-            (likeUserId) => likeUserId.toString() === userId
+        // User already liked — try to unlike
+        const pullResult = await Project.findOneAndUpdate(
+            { _id: id, likes: userId },
+            { $pull: { likes: userId } },
+            { new: true }
         );
 
-        if (hasLiked) {
-            await Project.findByIdAndUpdate(id, {
-                $pull: { likes: userId }
+        if (pullResult) {
+            res.status(200).json({
+                success: true,
+                message: 'Project unliked',
+                data: {
+                    likesCount: pullResult.likes.length,
+                    hasLiked: false
+                }
             });
-        } else {
-            await Project.findByIdAndUpdate(id, {
-                $addToSet: { likes: userId }
-            });
+            return;
         }
 
-        const updatedProject = await Project.findById(id);
-
-        res.status(200).json({
-            success: true,
-            message: hasLiked ? 'Project unliked' : 'Project liked',
-            data: {
-                likesCount: updatedProject!.likes.length,
-                hasLiked: !hasLiked
-            }
+        // Neither matched — project not found
+        res.status(404).json({
+            success: false,
+            message: 'Project not found'
         });
     } catch (error: any) {
         console.error('Toggle like error:', error);

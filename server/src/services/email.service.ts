@@ -5,20 +5,26 @@ const escapeHtml = (str: string): string =>
     str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
        .replace(/"/g, '&quot;').replace(/'/g, '&#039;');
 
-const createTransporter = () => {
-    return nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false, // use STARTTLS
-        auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS,
-        },
-        tls: {
-            minVersion: 'TLSv1.2',
-            rejectUnauthorized: true,
-        },
-    });
+// [FIX H-06] Create transporter once at module level for connection reuse
+let _transporter: ReturnType<typeof nodemailer.createTransport> | null = null;
+
+const getTransporter = () => {
+    if (!_transporter) {
+        _transporter = nodemailer.createTransport({
+            host: 'smtp.gmail.com',
+            port: 587,
+            secure: false, // use STARTTLS
+            auth: {
+                user: process.env.EMAIL_USER,
+                pass: process.env.EMAIL_PASS,
+            },
+            tls: {
+                minVersion: 'TLSv1.2',
+                rejectUnauthorized: true,
+            },
+        });
+    }
+    return _transporter;
 };
 
 export const sendVerificationEmail = async (
@@ -26,7 +32,7 @@ export const sendVerificationEmail = async (
     name: string,
     token: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const verificationLink = `${clientUrl}/verify-email/${token}`;
     const safeName = escapeHtml(name);
@@ -107,7 +113,7 @@ export const sendPasswordResetEmail = async (
     name: string,
     token: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const resetLink = `${clientUrl}/reset-password/${token}`;
     const safeName = escapeHtml(name);
@@ -188,7 +194,7 @@ export const sendProjectSubmittedEmail = async (
     studentName: string,
     projectName: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const safeStudentName = escapeHtml(studentName);
     const safeProjectName = escapeHtml(projectName);
@@ -229,7 +235,7 @@ export const sendProjectApprovalEmail = async (
     status: 'approved' | 'rejected',
     remarks?: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const isApproved = status === 'approved';
     const safeStudentName = escapeHtml(studentName);
     const safeProjectName = escapeHtml(projectName);
@@ -269,7 +275,7 @@ export const sendProjectAssignedEmail = async (
     studentName: string,
     projectName: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const safeInstructorName = escapeHtml(instructorName);
     const safeStudentName = escapeHtml(studentName);
@@ -309,7 +315,7 @@ export const sendInstructorApprovalEmail = async (
     email: string,
     name: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
     const safeName = escapeHtml(name);
 
@@ -350,7 +356,7 @@ export const sendInstructorRejectionEmail = async (
     email: string,
     name: string
 ): Promise<void> => {
-    const transporter = createTransporter();
+    const transporter = getTransporter();
     const safeName = escapeHtml(name);
 
     const mailOptions = {

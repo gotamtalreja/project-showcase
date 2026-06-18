@@ -6,7 +6,8 @@ import { sendVerificationEmail, sendPasswordResetEmail, sendInstructorApprovalEm
 import { AuthRequest } from '../middleware/auth.middleware';
 import { createNotification } from './notification.controller';
 
-const ALLOWED_EMAIL_DOMAIN = '@iba-suk.edu.pk';
+// [FIX L-07] Make email domain configurable via env var
+const ALLOWED_EMAIL_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN || '@iba-suk.edu.pk';
 
 // Generate JWT Token
 const generateToken = (id: string, role: string): string => {
@@ -336,6 +337,16 @@ export const googleLogin = async (req: Request, res: Response): Promise<void> =>
                 if (picture && !user.avatar) user.avatar = picture;
                 user.isVerified = true; // Google-authenticated users are auto-verified
                 await user.save();
+            }
+
+            // [FIX H-05] Check if existing instructor is approved before issuing JWT
+            if (user.role === 'instructor' && !user.isApproved) {
+                res.status(403).json({
+                    success: false,
+                    message: 'Your instructor account is pending admin approval. You will be notified once approved.',
+                    pendingApproval: true
+                });
+                return;
             }
         } else {
             // Create new user (auto-verified for Google auth)

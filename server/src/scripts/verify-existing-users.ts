@@ -16,7 +16,12 @@ const run = async () => {
         await mongoose.connect(mongoUri);
         console.log('Connected to MongoDB');
 
-        const result = await mongoose.connection.db!.collection('users').updateMany(
+        // [FIX H-03] Add null check for db handle
+        const db = mongoose.connection.db;
+        if (!db) {
+            throw new Error('Database connection not established');
+        }
+        const result = await db.collection('users').updateMany(
             { isVerified: { $ne: true } },
             { $set: { isVerified: true }, $unset: { verificationToken: '', verificationTokenExpires: '' } }
         );

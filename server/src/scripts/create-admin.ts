@@ -40,7 +40,8 @@ const createAdmin = async () => {
                 role: 'admin',
                 isVerified: true
             });
-            console.log(`✅ Admin account created: ${admin.email} (password: ${password})`);
+            // [FIX C-03] Don't log plaintext password
+            console.log(`✅ Admin account created: ${admin.email}`);
         }
 
         await mongoose.disconnect();
