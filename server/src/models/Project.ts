@@ -17,7 +17,7 @@ export interface IProject extends Document {
     updatedAt: Date;
 }
 
-const projectSchema = new Schema<IProject>(
+const projectSchema = new Schema(
     {
         projectName: {
             type: String,
